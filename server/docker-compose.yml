@@ -1,0 +1,21 @@
+# Local development database only. The password is the documented dev default.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: auralithic
+      POSTGRES_PASSWORD: auralithic
+      POSTGRES_DB: auralithic
+    # Host 5433 leaves 5432 free for other local Postgres instances.
+    ports:
+      - "5433:5432"
+    volumes:
+      - auralithic_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auralithic -d auralithic"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  auralithic_pg:

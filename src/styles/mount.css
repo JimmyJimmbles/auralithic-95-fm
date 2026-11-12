@@ -1,0 +1,13 @@
+#root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+audio.station-audio {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
