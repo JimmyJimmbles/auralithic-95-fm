@@ -1,6 +1,5 @@
-.admin-page .desktop{padding:32px 30px 44px 122px;height:calc(100svh - var(--taskbar));min-height:0;overflow:hidden;box-sizing:border-box}
-.admin-page{height:100svh;overflow:hidden}
-.admin-page .admin-window{width:min(1060px,100%);height:100%;max-height:100%;min-height:0;display:flex;flex-direction:column;position:relative}
+.admin-page .desktop{padding:32px 30px 44px 122px;min-height:calc(100svh - var(--taskbar))}
+.admin-page .admin-window{width:min(1060px,100%);position:relative}
 .admin-page .window-title{min-width:0}
 .admin-page .window-title>span{overflow:hidden;text-overflow:ellipsis}
 .admin-page .window-controls{flex:none}
@@ -23,7 +22,7 @@
 .address-bar>div{display:flex;align-items:center;gap:6px;flex:1;min-width:0;padding:4px 7px;background:#fff;box-shadow:var(--sink)}
 .address-bar>div>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .workspace-tag{font:9px "Courier New",monospace;color:#555;letter-spacing:.5px}
-.admin-layout{display:grid;grid-template-columns:176px minmax(0,1fr);flex:1;min-height:0;height:auto;padding:0 5px 5px;gap:5px}
+.admin-layout{display:grid;grid-template-columns:176px minmax(0,1fr);min-height:450px;height:min(585px,calc(100svh - 232px));padding:0 5px 5px;gap:5px}
 .explorer-sidebar{padding:13px 8px;background:#e6e5df;box-shadow:var(--sink);overflow:auto;display:flex;flex-direction:column}
 .sidebar-heading{display:flex;align-items:center;gap:7px;padding:0 4px 10px;border-bottom:1px solid #aaa;margin-bottom:9px;font-weight:bold}
 .sidebar-label{font-size:10px;color:#555;letter-spacing:.7px;margin:13px 7px 5px;text-transform:uppercase}
@@ -107,7 +106,7 @@
 .import-drop strong{display:block;font-size:12px;font-weight:normal;color:#222;margin-bottom:4px}
 .import-drop p{font-size:10px;margin-top:5px}
 .import-drop .text-button{margin-top:6px;font-size:11px}
-.editor-track-list{padding:2px;background:white;box-shadow:var(--sink);max-height:min(280px,42svh);overflow:auto}
+.editor-track-list{padding:2px;background:white;box-shadow:var(--sink)}
 .editor-track{display:grid;grid-template-columns:20px 27px minmax(0,1fr) 38px 26px 29px 24px;align-items:center;gap:6px;padding:7px 6px;border-bottom:1px solid #ddd;background:#fff}
 .editor-track:last-child{border-bottom:0}
 .editor-track.dragging{opacity:.45}
@@ -193,6 +192,3 @@
 .login-panel form,.login-copy{display:grid;gap:10px;padding:16px}
 .login-copy p,.login-error{font-size:12px;margin:0}
 .login-error{color:#7a1d1d}
-
-.admin-page .admin-layout,
-.admin-expanded .admin-layout{height:auto;min-height:0;flex:1}
