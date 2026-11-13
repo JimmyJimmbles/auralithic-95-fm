@@ -215,6 +215,10 @@ export const Desktop = ({ notice, notify }: { notice: string | null; notify: (me
             <img src="/icons/folder.svg" width={34} height={34} alt="" />
             <span>Artists</span>
           </a>
+          <a className="desktop-support" href="https://ko-fi.com/A5P02ALBML" target="_blank" rel="noopener noreferrer">
+            <img src="/icons/hand.svg" width={34} height={34} alt="" />
+            <span>Support</span>
+          </a>
         </nav>
         <ProgramWindow
           hidden={windowMode !== 'open'}

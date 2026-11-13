@@ -40,6 +40,7 @@ svg.icon{display:block;width:16px;height:16px;flex:none}
 .desktop-icons img,.titlebar img,.taskbar img{image-rendering:pixelated}
 .taskbar img.artist-portrait{image-rendering:auto;object-fit:cover;width:23px;height:23px}
 .desktop-icons a:hover span,.desktop-icons a:focus-visible span{background:var(--blue);outline:1px dotted white}
+.desktop-icons a.desktop-support{position:fixed;left:12px;bottom:calc(var(--taskbar) + 16px);z-index:2}
 .program-window{width:min(100%,360px);padding:3px;background:var(--face);box-shadow:var(--raise),4px 5px 0 #0039397a;min-width:0}
 body:not(.station-page) .program-window{width:min(100%,690px)}
 .titlebar{height:24px;display:flex;justify-content:space-between;align-items:center;gap:7px;background:var(--blue);color:#fff;padding:2px 3px 2px 4px}
@@ -163,6 +164,7 @@ input[type="range"]::-moz-range-thumb{border:0;border-radius:0;width:11px;height
   .desktop{padding:18px 12px 24px}
   .desktop-icons{position:static;display:flex;justify-self:start;gap:5px;margin-bottom:10px}
   .desktop-icons a{width:70px;min-height:45px;font-size:10px;gap:3px}
+  .desktop-icons a.desktop-support{position:static}
   .desktop-icons img{width:26px;height:26px}
   .program-window{align-self:start}
   .desktop{grid-template-rows:auto 1fr}

@@ -14,6 +14,10 @@ export const HelpDialog = ({ dialogRef }: { dialogRef: RefObject<HTMLDialogEleme
           <p>Independent radio. Independent art. </p>
           <p>Press Play to tune into the collective radio. Open Artists to explore a catalog or tune into one artist’s station.</p>
           <small>Built for the underground.</small>
+          <a className="help-support" href="https://ko-fi.com/A5P02ALBML" target="_blank" rel="noopener noreferrer">
+            <img src="/icons/hand-16.svg" width={16} height={16} alt="" />
+            Support
+          </a>
         </div>
       </div>
       <footer>
