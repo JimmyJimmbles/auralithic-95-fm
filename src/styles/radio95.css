@@ -194,6 +194,9 @@
 .radio-dialog-body strong{font-size:14px}
 .radio-dialog-body p{margin-top:9px}
 .radio-dialog-body small{display:block;margin-top:13px;font-size:10px;color:#666}
+.help-support{display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:4px 8px;background:var(--face);box-shadow:var(--raise);color:#111;text-decoration:none;font-size:11px}
+.help-support img{width:16px;height:16px;image-rendering:pixelated}
+.help-support:active{box-shadow:var(--sink)}
 .radio-dialog footer{display:flex;justify-content:flex-end;padding:4px 17px 16px}
 .radio-dialog footer button{width:75px;height:28px}
 .radio-app.is-immersive.station-page .program-window{width:min(100%,432px)}
