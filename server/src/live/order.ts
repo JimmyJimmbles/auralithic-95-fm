@@ -34,29 +34,100 @@ const shuffle = <T,>(items: readonly T[], random: () => number): T[] => {
   return result;
 };
 
+// A catalog with more than half the pass is spaced across the whole pass first.
+// Otherwise each catalog keeps its own even grid, so nobody dumps their extras at the end.
+const spacedIndices = (length: number, count: number, random: () => number): number[] => {
+  if (count <= 0 || length <= 0) return [];
+  if (count >= length) return Array.from({ length }, (_, index) => index);
+  const buckets = length - count + 1;
+  const base = Math.floor(count / buckets);
+  const extra = count % buckets;
+  const shift = Math.floor(random() * buckets);
+  const extraAt = new Set<number>();
+  for (let step = 0; step < extra; step += 1) {
+    extraAt.add((Math.floor((step * buckets) / extra) + shift) % buckets);
+  }
+  const picks: number[] = [];
+  let cursor = 0;
+  for (let bucket = 0; bucket < buckets; bucket += 1) {
+    const size = base + (extraAt.has(bucket) ? 1 : 0);
+    for (let step = 0; step < size; step += 1) {
+      picks.push(cursor);
+      cursor += 1;
+    }
+    if (bucket < buckets - 1) cursor += 1;
+  }
+  return picks;
+};
+
+const placeByPhase = <T,>(groups: readonly Group<T>[], random: () => number): T[] => {
+  const total = groups.reduce((sum, group) => sum + group.pile.length, 0);
+  const placed: { at: number; tie: number; item: T }[] = [];
+  groups.forEach((group, groupIndex) => {
+    const count = group.pile.length;
+    if (count === 0) return;
+    const phase = (random() + groupIndex * 0.6180339887498949) % 1;
+    group.pile.forEach((item, index) => {
+      placed.push({
+        at: ((index + phase) * total) / count,
+        tie: random(),
+        item,
+      });
+    });
+  });
+  placed.sort((left, right) => left.at - right.at || left.tie - right.tie);
+  return placed.map((slot) => slot.item);
+};
+
+const placeMajority = <T,>(groups: readonly Group<T>[], random: () => number): T[] => {
+  const total = groups.reduce((sum, group) => sum + group.pile.length, 0);
+  const ordered = [...groups].sort((left, right) => right.pile.length - left.pile.length || left.key.localeCompare(right.key));
+  const largest = ordered[0];
+  if (!largest) return [];
+  const slots: (T | undefined)[] = Array.from({ length: total }, () => undefined);
+  const keys: (string | undefined)[] = Array.from({ length: total }, () => undefined);
+  spacedIndices(total, largest.pile.length, random).forEach((slot, index) => {
+    slots[slot] = largest.pile[index];
+    keys[slot] = largest.key;
+  });
+  const rest = ordered.slice(1).map((group) => ({ key: group.key, pile: [...group.pile] }));
+  for (let slot = 0; slot < total; slot += 1) {
+    if (slots[slot] !== undefined) continue;
+    const previous = slot > 0 ? keys[slot - 1] : undefined;
+    let pool = rest.filter((group) => group.pile.length > 0);
+    const others = previous ? pool.filter((group) => group.key !== previous) : pool;
+    if (others.length > 0) pool = others;
+    const most = Math.max(...pool.map((group) => group.pile.length));
+    const tied = pool.filter((group) => group.pile.length === most);
+    const pick = tied[Math.floor(random() * tied.length)];
+    const item = pick?.pile.shift();
+    if (!pick || item === undefined) continue;
+    slots[slot] = item;
+    keys[slot] = pick.key;
+  }
+  return slots.flatMap((item) => (item === undefined ? [] : [item]));
+};
+
+const placeEvenly = <T,>(groups: readonly Group<T>[], random: () => number): T[] => {
+  const total = groups.reduce((sum, group) => sum + group.pile.length, 0);
+  const largest = groups.reduce((max, group) => Math.max(max, group.pile.length), 0);
+  if (largest * 2 > total) return placeMajority(groups, random);
+  return placeByPhase(groups, random);
+};
+
 export const orderCycle = (items: readonly LiveCut[], seed: string, cycle: number, avoidId?: string): LiveCut[] => {
   const random = mulberry32(hashString(`${seed}:${cycle}`));
   const piles = new Map<string, LiveCut[]>();
-  for (const item of items) {
+  const sorted = [...items].sort((left, right) => left.id.localeCompare(right.id) || left.group.localeCompare(right.group));
+  for (const item of sorted) {
     const pile = piles.get(item.group);
     if (pile) pile.push(item);
     else piles.set(item.group, [item]);
   }
-  const groups: Group<LiveCut>[] = [...piles.entries()].map(([key, pile]) => ({ key, pile: shuffle(pile, random) }));
-  const queue: LiveCut[] = [];
-  let previous: string | null = null;
-  while (groups.some((group) => group.pile.length > 0)) {
-    const remaining: Group<LiveCut>[] = groups.filter((group) => group.pile.length > 0);
-    const others: Group<LiveCut>[] = previous ? remaining.filter((group) => group.key !== previous) : remaining;
-    const pool: Group<LiveCut>[] = others.length > 0 ? others : remaining;
-    const most = Math.max(...pool.map((group) => group.pile.length));
-    const candidates: Group<LiveCut>[] = pool.filter((group) => group.pile.length === most);
-    const chosen: Group<LiveCut> | undefined = candidates[Math.floor(random() * candidates.length)];
-    const next = chosen?.pile.shift();
-    if (!chosen || !next) break;
-    queue.push(next);
-    previous = chosen.key;
-  }
+  const groups = [...piles.entries()]
+    .sort((left, right) => left[0].localeCompare(right[0]))
+    .map(([key, pile]) => ({ key, pile: shuffle(pile, random) }));
+  const queue = placeEvenly(groups, random);
   const first = queue[0];
   if (avoidId && first && queue.length > 1 && first.id === avoidId) {
     const later = queue.flatMap((item, index) => (index > 0 && item.id !== avoidId ? [index] : []));

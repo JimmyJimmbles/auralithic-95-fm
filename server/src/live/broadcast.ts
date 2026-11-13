@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { and, eq, isNotNull } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { artists, liveSchedules, releases, tracks, type LiveCut } from '../db/schema.js';
+import { artists, liveSchedules, releaseArtists, releases, tracks, type LiveCut } from '../db/schema.js';
 import { httpError } from '../http/error.js';
 import { orderCycle } from './order.js';
 
@@ -11,7 +11,7 @@ const sameSet = (left: readonly LiveCut[], right: readonly LiveCut[]) => {
   if (left.length !== right.length) return false;
   const a = [...left].sort((one, two) => one.id.localeCompare(two.id));
   const b = [...right].sort((one, two) => one.id.localeCompare(two.id));
-  return a.every((cut, index) => cut.id === b[index]?.id && cut.durationMs === b[index]?.durationMs);
+  return a.every((cut, index) => cut.id === b[index]?.id && cut.durationMs === b[index]?.durationMs && cut.group === b[index]?.group);
 };
 
 const publishedCuts = async (scope: string): Promise<LiveCut[]> => {
@@ -22,11 +22,12 @@ const publishedCuts = async (scope: string): Promise<LiveCut[]> => {
     releaseSlug: tracks.releaseSlug,
   }).from(tracks)
     .innerJoin(releases, eq(releases.slug, tracks.releaseSlug))
+    .innerJoin(releaseArtists, eq(releaseArtists.releaseSlug, releases.slug))
     .where(and(
       eq(tracks.status, 'published'),
       eq(releases.status, 'published'),
       isNotNull(tracks.audioKey),
-      scope === 'station' ? undefined : eq(releases.artistSlug, scope),
+      scope === 'station' ? eq(releaseArtists.sort, 0) : eq(releaseArtists.artistSlug, scope),
     ));
   return rows.map((row) => ({
     id: row.id,
@@ -69,7 +70,13 @@ export const liveBroadcast = async (scope: string): Promise<LiveBroadcast> => {
     let playlist = locked.tracks;
     let pending = locked.pending;
     const catalogChanged = !sameSet(desired, playlist) && !sameSet(desired, pending ?? []);
-    if (catalogChanged) pending = desired;
+    if (playlist.length === 0) {
+      playlist = desired.length > 0 ? orderCycle(desired, stationSeed, cycle) : [];
+      pending = null;
+      if (desired.length > 0) epoch = now;
+    } else if (catalogChanged) {
+      pending = desired;
+    }
 
     let duration = durationOf(playlist);
     let steps = 0;

@@ -11,6 +11,7 @@ export type AdminArtist = {
 export type AdminRelease = {
   slug: string;
   artistSlug: string;
+  artistSlugs: string[];
   title: string;
   type: 'single' | 'album';
   releaseDate: string;

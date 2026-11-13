@@ -27,6 +27,9 @@
 .radio-app #dial-identity{min-width:0;flex:1}
 .radio-app .dial-meta h2{font-size:14px;font-weight:normal;line-height:1.15;overflow-wrap:anywhere}
 .radio-app .dial-meta a{font-size:11px;margin-top:5px;color:#222;text-decoration:none;gap:3px}
+.radio-app .now-playing-artists{margin-top:5px}
+.radio-app .dial-meta .now-playing-artists a{margin-top:0}
+.radio-app .credit-join{font-size:11px;color:#555}
 .radio-app .dial-meta a:hover{color:var(--blue);text-decoration:underline}
 .radio-app .dial-meta a svg{width:9px;height:9px}
 .radio-app .like-control{gap:5px}
@@ -103,13 +106,24 @@
 .radio-app .catalog-search input{width:148px;border:0;background:#fff;box-shadow:var(--sink);min-height:22px;padding:2px 6px;font:inherit}
 .radio-app .roster-scroll{max-height:min(320px,calc(100svh - 280px));overflow:auto}
 .radio-app .property-content.is-tracks{overflow:hidden;display:flex;flex-direction:column}
+.radio-app .property-content.is-releases:has(.release-detail){display:flex;flex-direction:column;height:var(--panel-max);overflow:hidden}
+.radio-app .property-content.is-releases>.release-toolbar,
+.radio-app .property-content.is-releases>#release-list{flex:none}
+.radio-app .property-content.is-releases>#release-detail,
+.radio-app .property-content.is-releases .release-detail,
+.radio-app .property-content.is-releases .track-directory{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;overflow:hidden}
+.radio-app .property-content.is-releases .release-detail>h3,
+.radio-app .property-content.is-releases .track-columns,
+.radio-app .property-content.is-releases .track-list-footer{flex:none}
+.radio-app .property-content.is-releases .track-list-scroll{flex:1 1 auto;max-height:none;min-height:0;overflow:auto}
+.radio-app .property-content.is-releases .track-list{min-height:0}
 .radio-app .track-list-scroll{max-height:min(240px,calc(100svh - 520px));min-height:96px;overflow:auto}
 
 .property-tabs{display:flex;align-items:end;padding-left:3px;gap:2px;isolation:isolate;position:relative}
 .property-tabs [role="tab"]{position:relative;font:11px var(--font);background:#bcbcbc;box-shadow:var(--raise);border:0;padding:7px 17px 6px;min-height:28px;white-space:nowrap}
 .property-tabs [aria-selected="true"]{background:var(--face);padding-top:8px;padding-bottom:8px;margin-bottom:-2px;z-index:1;box-shadow:inset 1px 1px #fff,inset -1px 0 #808080}
 .property-tabs [aria-selected="true"]::after{content:"";position:absolute;bottom:0;left:2px;right:2px;height:3px;background:var(--face)}
-.property-content{padding:12px 9px 8px;box-shadow:var(--raise);min-height:246px;max-height:min(410px,calc(100svh - 390px));overflow:auto;scrollbar-color:#c0c0c0 #ddd;outline:none}
+.property-content{--panel-max:min(410px,calc(100svh - 390px));padding:12px 9px 8px;box-shadow:var(--raise);min-height:246px;max-height:var(--panel-max);overflow:auto;scrollbar-color:#c0c0c0 #ddd;outline:none}
 .artist-track-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;margin-bottom:9px}
 .artist-track-toolbar>span{display:flex;align-items:center;gap:6px}
 .artist-track-toolbar>span>img{image-rendering:pixelated}
@@ -200,7 +214,7 @@
   .track-columns,.radio-app .track-row{grid-template-columns:21px minmax(0,1.4fr) minmax(62px,.75fr) 39px 40px 13px}
   .track-columns>span,.radio-app .track-row>span{padding-left:5px;padding-right:5px}
   .radio-app .track-row .track-name strong{font-size:10px}
-  .property-content{max-height:min(390px,calc(100svh - 380px))}
+  .property-content{--panel-max:min(390px,calc(100svh - 380px))}
 }
 @media(max-width:480px){
   .radio-app main{padding:3px 5px 7px}
@@ -223,7 +237,7 @@
   .radio-app .artist-stat legend{font-size:9px}
   .property-tabs [role="tab"]{font-size:10px;padding:6px 12px}
   .property-tabs [aria-selected="true"]{padding-top:8px;padding-bottom:7px}
-  .property-content{min-height:225px;max-height:calc(100svh - 369px);padding:10px 6px 8px}
+  .property-content{min-height:225px;--panel-max:calc(100svh - 369px);padding:10px 6px 8px}
   .track-columns,.radio-app .track-row{grid-template-columns:19px minmax(0,1fr) 36px 36px 12px}
   .track-columns>span:nth-child(3),.radio-app .track-release{display:none}
   .radio-app .track-row .track-like-count{font-size:9px}
@@ -249,6 +263,6 @@
   .artist-properties .radio-group legend{font-size:10px}
   .artist-about-bio{font-size:11px}
 }
-@media(max-height:650px) and (min-width:701px){.radio-app .dial-cover{width:100%;max-width:100%;min-width:0}.radio-app .desktop{padding-top:15px;padding-bottom:20px}.radio-app .dial{gap:7px}.property-content{max-height:220px;min-height:170px}}
+@media(max-height:650px) and (min-width:701px){.radio-app .dial-cover{width:100%;max-width:100%;min-width:0}.radio-app .desktop{padding-top:15px;padding-bottom:20px}.radio-app .dial{gap:7px}.property-content{--panel-max:220px;min-height:170px}}
 @media(max-height:760px){.radio-app .dial{gap:6px}.radio-app .player-display{min-height:62px;padding:7px 10px}.radio-app .digital-elapsed{font-size:31px}.radio-app .dial-meta{min-height:51px}.radio-app .radio-player-footnote{padding-top:1px}}
 @media(prefers-reduced-motion:reduce){.radio-app .signal-bars i{animation:none!important;height:7px}}

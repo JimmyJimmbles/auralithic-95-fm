@@ -1,10 +1,10 @@
 import '@fastify/multipart';
 import type { FastifyInstance } from 'fastify';
-import { asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import { adminMutation, requireAdmin } from '../../auth/admin.js';
 import { db } from '../../db/client.js';
 import { rethrowPg } from '../../db/errors.js';
-import { artistLinks, artists, playbacks, releases, trackLikes, tracks, type ArtistRow } from '../../db/schema.js';
+import { artistLinks, artists, playbacks, releaseArtists, releases, trackLikes, tracks, type ArtistRow } from '../../db/schema.js';
 import { httpError } from '../../http/error.js';
 import { receiveFile } from '../../http/multipart.js';
 import { artistBody, artistPatch, emptyBody, read, slugParams, strictEmpty } from '../../http/validate.js';
@@ -122,19 +122,49 @@ export const artistRoutes = async (app: FastifyInstance) => {
     const { params } = read(request, slugParams, strictEmpty, emptyBody);
     const [artist] = await db.select().from(artists).where(eq(artists.slug, params.slug)).limit(1);
     if (!artist) throw httpError(404, 'Not found');
-    const releaseRows = await db.select().from(releases).where(eq(releases.artistSlug, params.slug));
-    const releaseSlugs = releaseRows.map((release) => release.slug);
-    const trackRows = releaseSlugs.length === 0
-      ? []
-      : await db.select().from(tracks).where(inArray(tracks.releaseSlug, releaseSlugs));
+    const credited = await db.select({ releaseSlug: releaseArtists.releaseSlug }).from(releaseArtists)
+      .where(eq(releaseArtists.artistSlug, params.slug));
+    const led = await db.select({ slug: releases.slug }).from(releases).where(eq(releases.artistSlug, params.slug));
+    const releaseSlugs = [...new Set([...credited.map((row) => row.releaseSlug), ...led.map((row) => row.slug)])];
+    const membership = releaseSlugs.length === 0 ? [] : await db.select().from(releaseArtists)
+      .where(inArray(releaseArtists.releaseSlug, releaseSlugs))
+      .orderBy(asc(releaseArtists.sort));
+    const byRelease = new Map<string, { artistSlug: string; sort: number }[]>();
+    for (const row of membership) {
+      const list = byRelease.get(row.releaseSlug) ?? [];
+      list.push({ artistSlug: row.artistSlug, sort: row.sort });
+      byRelease.set(row.releaseSlug, list);
+    }
+    const exclusive: string[] = [];
+    const shared: { slug: string; next: { artistSlug: string; sort: number } }[] = [];
+    for (const slug of releaseSlugs) {
+      const next = (byRelease.get(slug) ?? []).find((credit) => credit.artistSlug !== params.slug);
+      if (next) shared.push({ slug, next });
+      else exclusive.push(slug);
+    }
+    const releaseRows = exclusive.length === 0 ? [] : await db.select().from(releases).where(inArray(releases.slug, exclusive));
+    const trackRows = exclusive.length === 0 ? [] : await db.select().from(tracks).where(inArray(tracks.releaseSlug, exclusive));
     const trackIds = trackRows.map((track) => track.id);
     await db.transaction(async (tx) => {
       if (trackIds.length > 0) {
         await tx.delete(trackLikes).where(inArray(trackLikes.trackId, trackIds));
         await tx.delete(playbacks).where(inArray(playbacks.trackId, trackIds));
-        await tx.delete(tracks).where(inArray(tracks.releaseSlug, releaseSlugs));
+        await tx.delete(tracks).where(inArray(tracks.releaseSlug, exclusive));
       }
-      if (releaseSlugs.length > 0) await tx.delete(releases).where(eq(releases.artistSlug, params.slug));
+      if (exclusive.length > 0) await tx.delete(releases).where(inArray(releases.slug, exclusive));
+      for (const { slug, next } of shared) {
+        await tx.delete(releaseArtists).where(and(
+          eq(releaseArtists.releaseSlug, slug),
+          eq(releaseArtists.artistSlug, params.slug),
+        ));
+        if (next.sort !== 0) {
+          await tx.update(releaseArtists).set({ sort: 0 }).where(and(
+            eq(releaseArtists.releaseSlug, slug),
+            eq(releaseArtists.artistSlug, next.artistSlug),
+          ));
+        }
+        await tx.update(releases).set({ artistSlug: next.artistSlug }).where(eq(releases.slug, slug));
+      }
       await tx.delete(artistLinks).where(eq(artistLinks.artistSlug, params.slug));
       await tx.delete(artists).where(eq(artists.slug, params.slug));
     });

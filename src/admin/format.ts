@@ -1,3 +1,6 @@
+export const creditedSlugs = (release: { artistSlug: string; artistSlugs?: readonly string[] }): string[] =>
+  release.artistSlugs && release.artistSlugs.length > 0 ? [...release.artistSlugs] : [release.artistSlug];
+
 export const slugify = (value: string): string =>
   value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
 

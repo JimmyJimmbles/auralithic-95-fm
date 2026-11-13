@@ -29,6 +29,13 @@
       "when": 1794470000000,
       "tag": "0003_live_schedules",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794480000000,
+      "tag": "0004_release_artists",
+      "breakpoints": true
     }
   ]
 }

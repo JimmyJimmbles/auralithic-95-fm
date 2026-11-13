@@ -5,16 +5,18 @@ import { IMAGE_LIMIT } from '../../constants.js';
 import { adminMutation, requireAdmin } from '../../auth/admin.js';
 import { db } from '../../db/client.js';
 import { rethrowPg } from '../../db/errors.js';
-import { artists, playbacks, releases, trackLikes, tracks, type ReleaseRow, type TrackRow } from '../../db/schema.js';
+import { creditsByRelease, creditsFor } from '../../db/credits.js';
+import { artists, playbacks, releaseArtists, releases, trackLikes, tracks, type ReleaseRow, type TrackRow } from '../../db/schema.js';
 import { httpError } from '../../http/error.js';
 import { receiveFile } from '../../http/multipart.js';
 import { emptyBody, read, releaseBody, releasePatch, slugParams, strictEmpty } from '../../http/validate.js';
 import { dropUnusedMaster, dropUnusedPublicKey, saveImage } from '../../media/upload.js';
 import { media } from '../../media/store.js';
 
-const present = (release: ReleaseRow) => ({
+const shape = (release: ReleaseRow, artistSlugs: string[]) => ({
   slug: release.slug,
-  artistSlug: release.artistSlug,
+  artistSlug: artistSlugs[0] ?? release.artistSlug,
+  artistSlugs,
   title: release.title,
   type: release.type,
   releaseDate: release.releaseDate,
@@ -23,9 +25,20 @@ const present = (release: ReleaseRow) => ({
   publishedAt: release.publishedAt?.toISOString() ?? null,
 });
 
-const requireArtist = async (slug: string) => {
-  const [artist] = await db.select({ slug: artists.slug }).from(artists).where(eq(artists.slug, slug)).limit(1);
-  if (!artist) throw httpError(400, 'Artist does not exist');
+const present = async (release: ReleaseRow) => {
+  const credits = await creditsByRelease([release.slug]);
+  return shape(release, creditsFor(credits, release.slug, release.artistSlug));
+};
+
+const requireArtists = async (slugs: readonly string[]) => {
+  const rows = await db.select({ slug: artists.slug }).from(artists).where(inArray(artists.slug, [...slugs]));
+  if (rows.length !== slugs.length) throw httpError(400, 'Artist does not exist');
+};
+
+const leadOf = (slugs: readonly string[]) => {
+  const lead = slugs[0];
+  if (!lead) throw httpError(400, 'A release needs an artist');
+  return lead;
 };
 
 const tracksFor = async (slug: string) => db.select().from(tracks)
@@ -53,16 +66,32 @@ export const releaseRoutes = async (app: FastifyInstance) => {
   app.get('/api/admin/releases', { preHandler: requireAdmin }, async (request) => {
     read(request, strictEmpty, strictEmpty, emptyBody);
     const rows = await db.select().from(releases).orderBy(asc(releases.releaseDate), asc(releases.slug));
-    return rows.map(present);
+    const credits = await creditsByRelease(rows.map((release) => release.slug));
+    return rows.map((release) => shape(release, creditsFor(credits, release.slug, release.artistSlug)));
   });
 
   app.post('/api/admin/releases', { preHandler: adminMutation }, async (request, reply) => {
     const { body } = read(request, strictEmpty, strictEmpty, releaseBody);
-    await requireArtist(body.artistSlug);
+    await requireArtists(body.artistSlugs);
+    const lead = leadOf(body.artistSlugs);
     try {
-      const [created] = await db.insert(releases).values(body).returning();
-      if (!created) throw httpError(500, 'Could not create release');
-      return reply.code(201).send(present(created));
+      const created = await db.transaction(async (tx) => {
+        const [row] = await tx.insert(releases).values({
+          slug: body.slug,
+          artistSlug: lead,
+          title: body.title,
+          type: body.type,
+          releaseDate: body.releaseDate,
+        }).returning();
+        if (!row) throw httpError(500, 'Could not create release');
+        await tx.insert(releaseArtists).values(body.artistSlugs.map((artistSlug, sort) => ({
+          releaseSlug: row.slug,
+          artistSlug,
+          sort,
+        })));
+        return row;
+      });
+      return reply.code(201).send(await present(created));
     } catch (error) {
       throw rethrowPg(error);
     }
@@ -72,7 +101,8 @@ export const releaseRoutes = async (app: FastifyInstance) => {
     const { params, body } = read(request, slugParams, strictEmpty, releasePatch);
     const [current] = await db.select().from(releases).where(eq(releases.slug, params.slug)).limit(1);
     if (!current) throw httpError(404, 'Not found');
-    await requireArtist(body.artistSlug);
+    await requireArtists(body.artistSlugs);
+    const lead = leadOf(body.artistSlugs);
     if (current.status === 'published') {
       const rows = await tracksFor(params.slug);
       if (body.type === 'single' && rows.length !== 1) {
@@ -82,9 +112,27 @@ export const releaseRoutes = async (app: FastifyInstance) => {
         throw httpError(400, 'A published album must have at least one track');
       }
     }
-    const [updated] = await db.update(releases).set(body).where(eq(releases.slug, params.slug)).returning();
-    if (!updated) throw httpError(404, 'Not found');
-    return present(updated);
+    try {
+      const updated = await db.transaction(async (tx) => {
+        const [row] = await tx.update(releases).set({
+          artistSlug: lead,
+          title: body.title,
+          type: body.type,
+          releaseDate: body.releaseDate,
+        }).where(eq(releases.slug, params.slug)).returning();
+        if (!row) throw httpError(404, 'Not found');
+        await tx.delete(releaseArtists).where(eq(releaseArtists.releaseSlug, params.slug));
+        await tx.insert(releaseArtists).values(body.artistSlugs.map((artistSlug, sort) => ({
+          releaseSlug: params.slug,
+          artistSlug,
+          sort,
+        })));
+        return row;
+      });
+      return await present(updated);
+    } catch (error) {
+      throw rethrowPg(error);
+    }
   });
 
   app.post('/api/admin/releases/:slug/cover', {
@@ -104,7 +152,7 @@ export const releaseRoutes = async (app: FastifyInstance) => {
         throw error;
       }
       if (current.coverKey !== key) await dropUnusedPublicKey(current.coverKey);
-      return present({ ...current, coverKey: key });
+      return await present({ ...current, coverKey: key });
     } finally {
       await received.cleanup();
     }
@@ -121,7 +169,7 @@ export const releaseRoutes = async (app: FastifyInstance) => {
       await tx.update(releases).set({ status: 'published', publishedAt }).where(eq(releases.slug, params.slug));
       await tx.update(tracks).set({ status: 'published' }).where(eq(tracks.releaseSlug, params.slug));
     });
-    return present({ ...release, status: 'published', publishedAt });
+    return await present({ ...release, status: 'published', publishedAt });
   });
 
   app.post('/api/admin/releases/:slug/unpublish', { preHandler: adminMutation }, async (request) => {
@@ -135,7 +183,7 @@ export const releaseRoutes = async (app: FastifyInstance) => {
       ));
       await tx.update(tracks).set({ status: 'draft' }).where(eq(tracks.releaseSlug, params.slug));
     });
-    return present({ ...release, status: 'draft' });
+    return await present({ ...release, status: 'draft' });
   });
 
   app.delete('/api/admin/releases/:slug', { preHandler: adminMutation }, async (request, reply) => {

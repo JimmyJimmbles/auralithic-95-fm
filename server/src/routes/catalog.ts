@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { and, asc, count, eq, inArray, isNotNull } from 'drizzle-orm';
 import { db } from '../db/client.js';
+import { creditsByRelease, creditsFor } from '../db/credits.js';
 import { artistLinks, artists, playbacks, releases, tracks } from '../db/schema.js';
 import { strictEmpty, emptyBody, read } from '../http/validate.js';
 import { media } from '../media/store.js';
@@ -14,8 +15,9 @@ export const catalogRoutes = async (app: FastifyInstance) => {
       .orderBy(asc(releases.releaseDate), asc(releases.slug));
     if (releaseRows.length === 0) return { artists: [], releases: [], tracks: [] };
 
-    const artistSlugs = [...new Set(releaseRows.map((release) => release.artistSlug))];
     const releaseSlugs = releaseRows.map((release) => release.slug);
+    const credits = await creditsByRelease(releaseSlugs);
+    const artistSlugs = [...new Set(releaseRows.flatMap((release) => creditsFor(credits, release.slug, release.artistSlug)))];
     const artistRows = await db.select().from(artists)
       .where(inArray(artists.slug, artistSlugs))
       .orderBy(asc(artists.channel));
@@ -49,20 +51,26 @@ export const catalogRoutes = async (app: FastifyInstance) => {
         portraitUrl: urlFor(artist.portraitKey),
         links: linksByArtist.get(artist.slug) ?? [],
       })),
-      releases: releaseRows.map((release) => ({
-        slug: release.slug,
-        artistSlug: release.artistSlug,
-        title: release.title,
-        type: release.type,
-        releaseDate: release.releaseDate,
-        coverUrl: urlFor(release.coverKey),
-      })),
+      releases: releaseRows.map((release) => {
+        const credited = creditsFor(credits, release.slug, release.artistSlug);
+        return {
+          slug: release.slug,
+          artistSlug: credited[0] ?? release.artistSlug,
+          artistSlugs: credited,
+          title: release.title,
+          type: release.type,
+          releaseDate: release.releaseDate,
+          coverUrl: urlFor(release.coverKey),
+        };
+      }),
       tracks: trackRows.map((track) => {
         const release = releaseBySlug.get(track.releaseSlug);
+        const credited = release ? creditsFor(credits, release.slug, release.artistSlug) : [];
         return {
           id: track.id,
           releaseSlug: track.releaseSlug,
-          artistSlug: release?.artistSlug ?? '',
+          artistSlug: credited[0] ?? '',
+          artistSlugs: credited,
           title: track.title,
           position: track.position,
           durationSeconds: track.durationSeconds,

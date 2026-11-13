@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { artists, releases, tracks } from '../db/schema.js';
+import { artists, releaseArtists, releases, tracks } from '../db/schema.js';
 import { httpError } from '../http/error.js';
 import { hasFfmpeg, removeTranscode, transcodeToMp3 } from './transcode.js';
 import { declaredTypeOk, sniffFile } from './sniff.js';
@@ -113,9 +113,11 @@ export const isPublishedKey = async (key: string): Promise<boolean> => {
   if (cover) return true;
   const [portrait] = await db.select({ slug: artists.slug }).from(artists).where(eq(artists.portraitKey, key)).limit(1);
   if (!portrait) return false;
-  const [release] = await db.select({ slug: releases.slug }).from(releases).where(and(
-    eq(releases.artistSlug, portrait.slug),
-    eq(releases.status, 'published'),
-  )).limit(1);
+  const [release] = await db.select({ slug: releases.slug }).from(releases)
+    .innerJoin(releaseArtists, eq(releaseArtists.releaseSlug, releases.slug))
+    .where(and(
+      eq(releaseArtists.artistSlug, portrait.slug),
+      eq(releases.status, 'published'),
+    )).limit(1);
   return Boolean(release);
 };

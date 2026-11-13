@@ -24,7 +24,11 @@ export const StationView = ({
   const playback = usePlayback();
   const catalog = useCatalog();
   const current = playback.current;
-  const artist = current ? catalog.artists[current.artist] : undefined;
+  const onCollective = stationName === 'Auralithic Collective';
+  const credits = current ? current.artists.flatMap((slug) => {
+    const person = catalog.artists[slug];
+    return person ? [{ slug, name: person.name }] : [];
+  }) : [];
   const release = current ? catalog.releases[current.release] : undefined;
   const connecting = !catalog.ready || playback.connecting;
   const signal = connecting ? 'Connecting' : playback.playing ? 'On air' : 'Standby';
@@ -46,10 +50,21 @@ export const StationView = ({
         <legend>Currently Playing</legend>
         <div className="dial-meta">
           <div id="dial-identity" aria-live="polite">
-            {current && artist && !connecting ? (
+            {current && !connecting ? (
               <>
                 <h2>{current.name}</h2>
-                <a href={stationName === 'Auralithic Collective' ? artistRadioHref(current.artist) : artistCatalogHref(current.artist)}>{artist.name} <Icon name="diagonal" /></a>
+                {credits.length > 0 ? (
+                  <p className="now-playing-artists">
+                    {credits.map((person, index) => (
+                      <span key={person.slug}>
+                        {index > 0 ? <span className="credit-join"> & </span> : null}
+                        <a href={onCollective ? artistRadioHref(person.slug) : artistCatalogHref(person.slug)}>
+                          {person.name} <Icon name="diagonal" />
+                        </a>
+                      </span>
+                    ))}
+                  </p>
+                ) : null}
               </>
             ) : connecting ? (
               <>

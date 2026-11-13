@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api, upload } from './api.ts';
-import { firstImage, nextChannel, slugify, uniqueSlug } from './format.ts';
+import { creditedSlugs, firstImage, nextChannel, slugify, uniqueSlug } from './format.ts';
 import type { Workspace } from './types.ts';
 import { mediaUrl } from './types.ts';
 
@@ -228,14 +228,14 @@ export const ArtistDirectory = ({
                     </span>
                   </td>
                   <td>{artist.slug}.auralithic.fm</td>
-                  <td>{workspace.releases.filter((release) => release.artistSlug === artist.slug).length}</td>
+                  <td>{workspace.releases.filter((release) => creditedSlugs(release).includes(artist.slug)).length}</td>
                   <td>
                     <button
                       type="button"
                       className="win-button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        if (!window.confirm(`Delete ${artist.name} and every release on this station?`)) return;
+                        if (!window.confirm(`Delete ${artist.name}? Releases only on this station are removed. Shared releases stay with the other artists.`)) return;
                         onDelete(artist.slug);
                       }}
                     >
