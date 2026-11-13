@@ -29,7 +29,6 @@ export const ArtistsView = () => {
           <img src="/icons/folder.svg" width={44} height={44} alt="" />
           <h2>Artists</h2>
           <hr />
-          <p>A frequency for every artist in the collective.</p>
           <p>Open an artist to explore their music and tune into their station.</p>
           <small>{entries.length} artist stations</small>
         </aside>
