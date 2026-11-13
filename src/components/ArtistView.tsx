@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { coverUrl, rotationOf } from '../data/catalog.ts';
+import { collectiveOrigin } from '../lib/site.ts';
 import { useCatalog } from '../hooks/useCatalog.tsx';
 import { usePlayback } from '../hooks/usePlayback.tsx';
 import { Icon } from './Icon.tsx';
@@ -82,7 +83,7 @@ export const ArtistView = ({ slug }: { slug: string }) => {
   return (
     <>
       <div className="explorer-address">
-        <a href="/artists" className="back-link"><Icon name="back" /> Back</a>
+        <a href={`${collectiveOrigin()}/artists`} className="back-link"><Icon name="back" /> Back</a>
         <div>
           <img src="/icons/folder.svg" width={16} height={16} alt="" />
           Artists\{artist.name}

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { audioUrl, coverUrl, rotationOf, stationLabel, type CatalogData, type Track } from '../data/catalog.ts';
 import { dealSpread } from '../lib/shuffle.ts';
-import { readBoolean, readNumber, writeStorage } from '../lib/storage.ts';
+import { readBoolean, readNumber, writeStationSession, writeStorage } from '../lib/storage.ts';
 import { useCatalog } from './useCatalog.tsx';
 import { useLikes, type LikeStore } from './useLikes.ts';
 import { usePalette } from './usePalette.ts';
@@ -24,6 +24,7 @@ export type Playback = LikeStore & {
   toggleMute: () => void;
   tune: (scope: string) => void;
   playTrack: (scope: string, trackId: string) => void;
+  restore: (scope: string, trackId: string | null, position: number) => void;
   returnToCollective: () => void;
 };
 
@@ -60,7 +61,7 @@ const usePlaybackEngine = (
   const [current, setCurrent] = useState<Track | null>(null);
   const [stationId, setStationId] = useState('station');
   const [playing, setPlaying] = useState(false);
-  const [connecting, setConnecting] = useState(true);
+  const [connecting, setConnecting] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(() => {
@@ -138,7 +139,7 @@ const usePlaybackEngine = (
     setPlaying(false);
   }, []);
 
-  const selectTrack = useCallback((track: Track | null, shouldPlay: boolean) => {
+  const selectTrack = useCallback((track: Track | null, shouldPlay: boolean, offset = 0) => {
     const audio = audioRef.current;
     currentRef.current = track;
     listenedRef.current = 0;
@@ -147,8 +148,9 @@ const usePlaybackEngine = (
     wantsRef.current = Boolean(track) && shouldPlay;
     setConnecting(Boolean(track) && shouldPlay);
     setCurrent(track);
-    setPosition(0);
+    setPosition(offset);
     setDuration(track?.length ?? 0);
+    writeStationSession(stationRef.current, track?.id ?? null, offset);
     if (!audio) return;
     if (!track) {
       audio.pause();
@@ -161,6 +163,13 @@ const usePlaybackEngine = (
     const sameSource = audio.getAttribute('src') === nextSrc;
     audio.src = nextSrc;
     if (sameSource) audio.load();
+    if (offset > 0) {
+      const seek = () => {
+        audio.currentTime = offset;
+        audio.removeEventListener('loadedmetadata', seek);
+      };
+      audio.addEventListener('loadedmetadata', seek);
+    }
     publishSession();
     if (shouldPlay) void play();
     else {
@@ -169,17 +178,18 @@ const usePlaybackEngine = (
     }
   }, [play, publishSession]);
 
-  const tuneScope = useCallback((scope: string, autoplay: boolean, trackId?: string) => {
+  const tuneScope = useCallback((scope: string, autoplay: boolean, trackId?: string, offset = 0) => {
     stationRef.current = scope;
     setStationId(scope);
     const group = groupOf(scope);
     const rotation = rotationOf(catalogRef.current, scope);
-    if (trackId) {
+    const chosen = trackId ? rotation.find((track) => track.id === trackId) : undefined;
+    if (chosen) {
       queueRef.current = dealSpread(
-        rotation.filter((track) => track.id !== trackId),
+        rotation.filter((track) => track.id !== chosen.id),
         group,
       );
-      selectTrack(rotation.find((track) => track.id === trackId) ?? null, autoplay);
+      selectTrack(chosen, autoplay, offset);
       return;
     }
     const queue = dealSpread(rotation, group);
@@ -224,6 +234,10 @@ const usePlaybackEngine = (
   }, []);
 
   const tune = useCallback((scope: string) => tuneScope(scope, true), [tuneScope]);
+
+  const restore = useCallback((scope: string, trackId: string | null, offset: number) => {
+    tuneScope(scope, true, trackId ?? undefined, offset);
+  }, [tuneScope]);
 
   const playTrack = useCallback((scope: string, trackId: string) => {
     const audio = audioRef.current;
@@ -294,6 +308,12 @@ const usePlaybackEngine = (
       writeStorage('muted', element.muted);
     };
 
+    const remember = () => {
+      const element = audioRef.current;
+      writeStationSession(stationRef.current, currentRef.current?.id ?? null, element?.currentTime ?? 0);
+    };
+    window.addEventListener('pagehide', remember);
+
     audio.addEventListener('timeupdate', onTime);
     audio.addEventListener('seeked', onSeeked);
     audio.addEventListener('loadedmetadata', onTime);
@@ -338,6 +358,7 @@ const usePlaybackEngine = (
     }
 
     return () => {
+      window.removeEventListener('pagehide', remember);
       audio.removeEventListener('timeupdate', onTime);
       audio.removeEventListener('seeked', onSeeked);
       audio.removeEventListener('loadedmetadata', onTime);
@@ -369,15 +390,13 @@ const usePlaybackEngine = (
       }
       return;
     }
-    if (aligned.current === key) return;
-    aligned.current = key;
-    if (catalog.tracks.length === 0) {
-      setConnecting(false);
-      tuneScope('station', false);
+    if (!playingNow) {
+      aligned.current = key;
       return;
     }
-    setConnecting(true);
-    tuneScope('station', true);
+    if (aligned.current === key) return;
+    aligned.current = key;
+    tuneScope(stationRef.current, wantsRef.current);
   }, [catalog.ready, catalog.tracks, trackKey, tuneScope]);
 
   return {
@@ -396,6 +415,7 @@ const usePlaybackEngine = (
     toggleMute,
     tune,
     playTrack,
+    restore,
     returnToCollective,
   };
 };
@@ -431,6 +451,7 @@ export const PlaybackProvider = ({ children, notify }: { children: ReactNode; no
     toggleMute: engine.toggleMute,
     tune: engine.tune,
     playTrack: engine.playTrack,
+    restore: engine.restore,
     returnToCollective: engine.returnToCollective,
   };
 
