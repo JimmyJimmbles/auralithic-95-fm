@@ -107,7 +107,7 @@
 .import-drop strong{display:block;font-size:12px;font-weight:normal;color:#222;margin-bottom:4px}
 .import-drop p{font-size:10px;margin-top:5px}
 .import-drop .text-button{margin-top:6px;font-size:11px}
-.editor-track-list{padding:2px;background:white;box-shadow:var(--sink)}
+.editor-track-list{padding:2px;background:white;box-shadow:var(--sink);max-height:min(280px,42svh);overflow:auto}
 .editor-track{display:grid;grid-template-columns:20px 27px minmax(0,1fr) 38px 26px 29px 24px;align-items:center;gap:6px;padding:7px 6px;border-bottom:1px solid #ddd;background:#fff}
 .editor-track:last-child{border-bottom:0}
 .editor-track.dragging{opacity:.45}
