@@ -11,9 +11,9 @@ export const HelpDialog = ({ dialogRef }: { dialogRef: RefObject<HTMLDialogEleme
         <img src="/icons/radio.svg" width={38} height={38} alt="" />
         <div>
           <strong>Auralithic 95 FM</strong>
-          <p>Independent radio. A little frequency of our own.</p>
-          <p>Press Play to tune into the collective. Open Artists to explore a catalog or tune into one artist’s station.</p>
-          <small>Built for the music. Dressed for 1995.</small>
+          <p>Independent radio. Independent art. </p>
+          <p>Press Play to tune into the collective radio. Open Artists to explore a catalog or tune into one artist’s station.</p>
+          <small>Built for the underground.</small>
         </div>
       </div>
       <footer>
