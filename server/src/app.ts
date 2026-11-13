@@ -13,6 +13,7 @@ import { adminRoutes } from './routes/admin.js';
 import { catalogRoutes } from './routes/catalog.js';
 import { healthRoutes } from './routes/health.js';
 import { likesRoutes } from './routes/likes.js';
+import { liveRoutes } from './routes/live.js';
 import { mediaRoutes } from './routes/media.js';
 import { playsRoutes } from './routes/plays.js';
 
@@ -50,6 +51,7 @@ export const buildApp = async () => {
 
   await app.register(healthRoutes);
   await app.register(catalogRoutes);
+  await app.register(liveRoutes);
   await app.register(likesRoutes);
   await app.register(playsRoutes);
   await app.register(adminRoutes);

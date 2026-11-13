@@ -1,4 +1,4 @@
-import { index, integer, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid, date } from 'drizzle-orm/pg-core';
+import { date, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 export const releaseType = pgEnum('release_type', ['single', 'album']);
 export const publishStatus = pgEnum('publish_status', ['draft', 'published']);
@@ -99,6 +99,22 @@ export const adminSessions = pgTable('admin_sessions', {
 export const adminCredentials = pgTable('admin_credentials', {
   id: text('id').primaryKey().default('owner'),
   passwordHash: text('password_hash').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+});
+
+export type LiveCut = {
+  id: string;
+  durationMs: number;
+  group: string;
+};
+
+export const liveSchedules = pgTable('live_schedules', {
+  scope: text('scope').primaryKey(),
+  seed: text('seed').notNull(),
+  cycle: integer('cycle').notNull().default(0),
+  epoch: timestamp('epoch', { withTimezone: true, mode: 'date' }).notNull(),
+  tracks: jsonb('tracks').$type<LiveCut[]>().notNull(),
+  pending: jsonb('pending').$type<LiveCut[] | null>(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 });
 

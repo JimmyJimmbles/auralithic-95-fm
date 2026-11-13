@@ -83,7 +83,17 @@ export const ArtistView = ({ slug }: { slug: string }) => {
   return (
     <>
       <div className="explorer-address">
-        <a href={`${collectiveOrigin()}/artists`} className="back-link"><Icon name="back" /> Back</a>
+        <a
+          href={`${collectiveOrigin()}/artists`}
+          className="back-link"
+          onClick={(event) => {
+            if (window.history.length <= 1) return;
+            event.preventDefault();
+            window.history.back();
+          }}
+        >
+          <Icon name="back" /> Back
+        </a>
         <div>
           <img src="/icons/folder.svg" width={16} height={16} alt="" />
           Artists\{artist.name}
@@ -140,7 +150,7 @@ export const ArtistView = ({ slug }: { slug: string }) => {
                   className="primary"
                   onClick={() => {
                     if (tunedHere) playback.toggle();
-                    else playback.tune(slug);
+                    else playback.follow(slug);
                   }}
                 >
                   <Icon name={tunedHere ? (playback.playing ? 'pause' : 'play') : 'shuffle'} />
