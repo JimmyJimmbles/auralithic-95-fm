@@ -1,6 +1,6 @@
-.admin-page .desktop{padding:32px 30px 44px 122px;height:calc(100svh - var(--taskbar));min-height:0;overflow:hidden;box-sizing:border-box}
+.admin-page .desktop{padding:32px 30px 44px 122px;height:calc(100svh - var(--taskbar));min-height:0;overflow:hidden;box-sizing:border-box;align-items:stretch;justify-items:center}
 .admin-page{height:100svh;overflow:hidden}
-.admin-page .admin-window{width:min(1060px,100%);height:100%;max-height:100%;min-height:0;display:flex;flex-direction:column;position:relative}
+.admin-page .admin-window{width:min(1060px,100%);height:100%;max-height:100%;min-height:0;overflow:hidden;display:flex;flex-direction:column;position:relative}
 .admin-page .window-title{min-width:0}
 .admin-page .window-title>span{overflow:hidden;text-overflow:ellipsis}
 .admin-page .window-controls{flex:none}
