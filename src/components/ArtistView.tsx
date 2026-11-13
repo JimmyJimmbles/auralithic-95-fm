@@ -116,7 +116,7 @@ export const ArtistView = ({ slug }: { slug: string }) => {
         <fieldset className="artist-stat radio-group">
           <legend>Listening</legend>
           <strong id="artist-plays">{plays.toLocaleString()}</strong>
-          <span>plays on this device</span>
+          <span>total plays</span>
         </fieldset>
       </header>
       <section className="artist-file">
