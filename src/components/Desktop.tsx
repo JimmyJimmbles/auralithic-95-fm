@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { rotationOf, stationLabel } from '../data/catalog.ts';
 import { artistSlugFromHost, collectiveOrigin } from '../lib/site.ts';
+import { readStationSession } from '../lib/storage.ts';
 import { useCatalog } from '../hooks/useCatalog.tsx';
 import { useFullscreen } from '../hooks/useFullscreen.ts';
 import { useRoute } from '../hooks/useRoute.ts';
@@ -29,7 +30,7 @@ export const Desktop = ({ notice, notify }: { notice: string | null; notify: (me
   const fullscreen = useFullscreen(notify);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const crtIndex = useRef(0);
-  const { returnToCollective, tune, stationId, toggle } = playback;
+  const { tune, restore, stationId, current, toggle } = playback;
   const toggleRef = useRef(toggle);
   const notifyRef = useRef(notify);
   const exitFallbackRef = useRef(fullscreen.exitFallback);
@@ -58,10 +59,27 @@ export const Desktop = ({ notice, notify }: { notice: string | null; notify: (me
   const catalogCount = `${rotationOf(catalog, playback.stationId).length} tracks · radio`;
   const fullscreenLabel = fullscreen.expanded ? 'Exit full screen' : 'Enter full screen';
 
+  const held = useRef(false);
+
   useEffect(() => {
-    if (route.view === 'station') returnToCollective();
-    if (route.view === 'radio' && stationId !== route.slug) tune(route.slug);
-  }, [route, stationId, returnToCollective, tune]);
+    if (!catalog.ready) return;
+    if (route.view === 'station') {
+      if (stationId === 'station' && (current || rotationOf(catalog, 'station').length === 0)) return;
+      tune('station');
+      return;
+    }
+    if (route.view === 'radio') {
+      if (stationId === route.slug && (current || rotationOf(catalog, route.slug).length === 0)) return;
+      tune(route.slug);
+      return;
+    }
+    if (current || held.current) return;
+    held.current = true;
+    const saved = readStationSession();
+    if (!saved) return;
+    if (saved.scope !== 'station' && !catalog.artists[saved.scope]) return;
+    restore(saved.scope, saved.trackId, saved.position);
+  }, [catalog.ready, catalog.artists, route, stationId, current, tune, restore]);
 
   useEffect(() => {
     document.body.classList.add('radio-app');
