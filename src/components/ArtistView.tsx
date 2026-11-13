@@ -140,7 +140,7 @@ export const ArtistView = ({ slug }: { slug: string }) => {
                   className="primary"
                   onClick={() => {
                     if (tunedHere) playback.toggle();
-                    else playback.tune(slug);
+                    else playback.follow(slug);
                   }}
                 >
                   <Icon name={tunedHere ? (playback.playing ? 'pause' : 'play') : 'shuffle'} />

@@ -25,6 +25,7 @@ export type Playback = LikeStore & {
   tune: (scope: string) => void;
   playTrack: (scope: string, trackId: string) => void;
   restore: (scope: string, trackId: string | null, position: number) => void;
+  follow: (scope: string) => void;
   returnToCollective: () => void;
 };
 
@@ -47,6 +48,17 @@ const usePlaybackEngine = (
   const queueRef = useRef<Track[]>([]);
   const currentRef = useRef<Track | null>(null);
   const stationRef = useRef('station');
+  const followRef = useRef<string | null>(null);
+  const detachedRef = useRef(false);
+  const refreshingRef = useRef(false);
+  const liveRefreshRef = useRef<(scope: string) => void>(() => undefined);
+  type LiveProgram = {
+    offsetMs: number;
+    endsAt: number;
+    receivedAt: number;
+    tracks: { id: string; durationMs: number }[];
+  };
+  const programRef = useRef<LiveProgram | null>(null);
   const wantsRef = useRef(false);
   const listenedRef = useRef(0);
   const lastRef = useRef(0);
@@ -199,6 +211,10 @@ const usePlaybackEngine = (
   }, [selectTrack]);
 
   const continueRotation = useCallback(() => {
+    if (followRef.current) {
+      liveRefreshRef.current(followRef.current);
+      return;
+    }
     const ended = currentRef.current;
     if (!ended) return;
     if (queueRef.current.length === 0) {
@@ -211,6 +227,17 @@ const usePlaybackEngine = (
   const toggle = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
+    if (followRef.current) {
+      if (detachedRef.current || audio.paused) {
+        detachedRef.current = false;
+        wantsRef.current = true;
+        liveRefreshRef.current(followRef.current);
+        return;
+      }
+      detachedRef.current = true;
+      pause();
+      return;
+    }
     if (wantsRef.current && !audio.ended) pause();
     else void play();
   }, [pause, play]);
@@ -239,14 +266,108 @@ const usePlaybackEngine = (
     tuneScope(scope, true, trackId ?? undefined, offset);
   }, [tuneScope]);
 
+  const placeLive = useCallback((program: LiveProgram, snap: boolean) => {
+    const total = program.tracks.reduce((sum, cut) => sum + cut.durationMs, 0);
+    if (total <= 0) {
+      selectTrack(null, false);
+      return;
+    }
+    const elapsed = Math.min(total - 1, Math.max(0, program.offsetMs + (Date.now() - program.receivedAt)));
+    let cursor = 0;
+    for (const cut of program.tracks) {
+      if (cursor + cut.durationMs <= elapsed) {
+        cursor += cut.durationMs;
+        continue;
+      }
+      const track = catalogRef.current.tracks.find((item) => item.id === cut.id) ?? null;
+      const offset = (elapsed - cursor) / 1000;
+      const audio = audioRef.current;
+      if (!snap && detachedRef.current) return;
+      if (track && currentRef.current?.id === track.id && audio && audio.getAttribute('src')) {
+        if (Math.abs(audio.currentTime - offset) > 2.5) audio.currentTime = offset;
+        if (audio.paused && wantsRef.current) void play();
+        return;
+      }
+      wantsRef.current = true;
+      selectTrack(track, true, offset);
+      return;
+    }
+  }, [play, selectTrack]);
+
+  const refreshLive = useCallback(async (scope: string) => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    try {
+      const response = await fetch(`/api/live/${encodeURIComponent(scope)}`, { cache: 'no-store' });
+      if (!response.ok || followRef.current !== scope) return;
+      const body = await response.json() as { offsetMs: number; endsAt: string; tracks: { id: string; durationMs: number }[] };
+      const program: LiveProgram = {
+        offsetMs: body.offsetMs,
+        endsAt: Date.parse(body.endsAt),
+        receivedAt: Date.now(),
+        tracks: body.tracks,
+      };
+      programRef.current = program;
+      stationRef.current = scope;
+      setStationId(scope);
+      placeLive(program, true);
+    } finally {
+      refreshingRef.current = false;
+    }
+  }, [placeLive]);
+
+  useEffect(() => {
+    liveRefreshRef.current = (scope) => {
+      void refreshLive(scope);
+    };
+  }, [refreshLive]);
+
+  const follow = useCallback((scope: string) => {
+    if (followRef.current === scope && programRef.current) return;
+    detachedRef.current = false;
+    wantsRef.current = true;
+    followRef.current = scope;
+    stationRef.current = scope;
+    setStationId(scope);
+    void refreshLive(scope);
+  }, [refreshLive]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const scope = followRef.current;
+      const program = programRef.current;
+      if (!scope || !program || detachedRef.current) return;
+      if (Date.now() >= program.endsAt - 300) {
+        void refreshLive(scope);
+        return;
+      }
+      placeLive(program, false);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [placeLive, refreshLive]);
+
   const playTrack = useCallback((scope: string, trackId: string) => {
+    if (followRef.current) {
+      const audio = audioRef.current;
+      if (detachedRef.current || audio?.paused) {
+        detachedRef.current = false;
+        wantsRef.current = true;
+        void refreshLive(followRef.current);
+        return;
+      }
+      if (currentRef.current?.id === trackId) {
+        detachedRef.current = true;
+        pause();
+      }
+      return;
+    }
     const audio = audioRef.current;
     if (stationRef.current === scope && currentRef.current?.id === trackId) {
       if (audio?.paused) void play();
       return;
     }
     tuneScope(scope, true, trackId);
-  }, [play, tuneScope]);
+  }, [pause, play, refreshLive, tuneScope]);
 
   const returnToCollective = useCallback(() => {
     if (stationRef.current === 'station') return;
@@ -416,6 +537,7 @@ const usePlaybackEngine = (
     tune,
     playTrack,
     restore,
+    follow,
     returnToCollective,
   };
 };
@@ -452,6 +574,7 @@ export const PlaybackProvider = ({ children, notify }: { children: ReactNode; no
     tune: engine.tune,
     playTrack: engine.playTrack,
     restore: engine.restore,
+    follow: engine.follow,
     returnToCollective: engine.returnToCollective,
   };
 

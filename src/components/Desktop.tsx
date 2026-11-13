@@ -30,7 +30,7 @@ export const Desktop = ({ notice, notify }: { notice: string | null; notify: (me
   const fullscreen = useFullscreen(notify);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const crtIndex = useRef(0);
-  const { tune, restore, stationId, current, toggle } = playback;
+  const { follow, toggle } = playback;
   const toggleRef = useRef(toggle);
   const notifyRef = useRef(notify);
   const exitFallbackRef = useRef(fullscreen.exitFallback);
@@ -64,22 +64,20 @@ export const Desktop = ({ notice, notify }: { notice: string | null; notify: (me
   useEffect(() => {
     if (!catalog.ready) return;
     if (route.view === 'station') {
-      if (stationId === 'station' && (current || rotationOf(catalog, 'station').length === 0)) return;
-      tune('station');
+      follow('station');
       return;
     }
     if (route.view === 'radio') {
-      if (stationId === route.slug && (current || rotationOf(catalog, route.slug).length === 0)) return;
-      tune(route.slug);
+      follow(route.slug);
       return;
     }
-    if (current || held.current) return;
+    if (held.current) return;
     held.current = true;
     const saved = readStationSession();
     if (!saved) return;
     if (saved.scope !== 'station' && !catalog.artists[saved.scope]) return;
-    restore(saved.scope, saved.trackId, saved.position);
-  }, [catalog.ready, catalog.artists, route, stationId, current, tune, restore]);
+    follow(saved.scope);
+  }, [catalog.ready, catalog.artists, route, follow]);
 
   useEffect(() => {
     document.body.classList.add('radio-app');
