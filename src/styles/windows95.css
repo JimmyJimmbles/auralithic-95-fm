@@ -79,6 +79,9 @@ body.is-playing .dial-signal i{background:var(--accent);border-color:#fff8;box-s
 .dial-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:52px;padding:5px 7px 5px 8px;background:#fff;box-shadow:var(--sink)}
 .dial-meta h2{font-size:17px;font-weight:bold;line-height:1.05;overflow-wrap:anywhere}
 .dial-meta a{display:inline-flex;align-items:center;gap:3px;color:var(--blue);font-size:12px;margin-top:4px;text-underline-offset:2px}
+.now-playing-artists{display:flex;flex-wrap:wrap;align-items:center;margin-top:4px}
+.now-playing-artists a{margin-top:0}
+.credit-join{color:#555}
 .dial-meta a svg{width:10px;height:10px}
 .dial-controls{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:2px 0 1px}
 .play-button,.icon-button{display:inline-flex;justify-content:center;align-items:center;gap:4px;padding:0;width:27px;height:27px}

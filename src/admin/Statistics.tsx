@@ -1,3 +1,5 @@
+import { creditLine } from '../data/catalog.ts';
+import { creditedSlugs } from './format.ts';
 import type { Workspace } from './types.ts';
 import { mediaUrl } from './types.ts';
 
@@ -36,7 +38,7 @@ export const Statistics = ({ workspace }: { workspace: Workspace }) => {
               <thead>
                 <tr>
                   <th>Track</th>
-                  <th>Artist</th>
+                  <th>Artists</th>
                   <th>Streams</th>
                   <th>Likes</th>
                 </tr>
@@ -55,7 +57,7 @@ export const Statistics = ({ workspace }: { workspace: Workspace }) => {
                           </span>
                         </span>
                       </td>
-                      <td>{artistName(release?.artistSlug ?? '')}</td>
+                      <td>{release ? creditLine(creditedSlugs(release).map(artistName)) : ''}</td>
                       <td>{(workspace.stats.streams[track.id] ?? 0).toLocaleString()}</td>
                       <td>{(workspace.stats.likes[track.id] ?? 0).toLocaleString()}</td>
                     </tr>

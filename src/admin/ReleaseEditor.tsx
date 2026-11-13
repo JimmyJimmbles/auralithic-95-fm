@@ -45,7 +45,12 @@ export const ReleaseEditor = ({
 }) => {
   const existing = workspace.releases.find((release) => release.slug === slug);
   const [title, setTitle] = useState(existing?.title ?? '');
-  const [artistSlug, setArtistSlug] = useState(existing?.artistSlug ?? workspace.artists[0]?.slug ?? '');
+  const [artistSlugs, setArtistSlugs] = useState<string[]>(() => {
+    if (existing?.artistSlugs && existing.artistSlugs.length > 0) return [...existing.artistSlugs];
+    if (existing?.artistSlug) return [existing.artistSlug];
+    const first = workspace.artists[0]?.slug;
+    return first ? [first] : [];
+  });
   const [type, setType] = useState<'single' | 'album'>(existing?.type ?? initialType);
   const [releaseDate, setReleaseDate] = useState(existing?.releaseDate ?? today());
   const [cover, setCover] = useState<File | null>(null);
@@ -57,7 +62,7 @@ export const ReleaseEditor = ({
   const published = existing?.status === 'published';
   const gaps: string[] = [];
   if (!title.trim()) gaps.push('a title');
-  if (!artistSlug) gaps.push('an artist');
+  if (artistSlugs.length === 0) gaps.push('an artist');
   if (!releaseDate) gaps.push('a release date');
   if (!cover && !existing?.coverKey) gaps.push('cover art');
   if (rows.length === 0) gaps.push('a track');
@@ -67,6 +72,27 @@ export const ReleaseEditor = ({
     if (!row.audioKey && !row.file) gaps.push(`an audio file for “${row.title.trim() || 'untitled track'}”`);
   }
   const readiness = gaps.length ? `Still needs ${gaps.join(', ')}.` : 'Ready to publish.';
+
+  const setArtistAt = (index: number, value: string) => {
+    setArtistSlugs((current) => {
+      const next = [...current];
+      const previous = next[index] ?? '';
+      const other = next.findIndex((slug, item) => item !== index && slug === value);
+      next[index] = value;
+      if (other >= 0) next[other] = previous;
+      return next;
+    });
+  };
+
+  const addArtist = () => {
+    const next = workspace.artists.find((artist) => !artistSlugs.includes(artist.slug));
+    if (!next || artistSlugs.length >= 3) return;
+    setArtistSlugs((current) => (current.length >= 3 ? current : [...current, next.slug]));
+  };
+
+  const removeArtist = (index: number) => {
+    setArtistSlugs((current) => (current.length <= 1 ? current : current.filter((_, item) => item !== index)));
+  };
 
   const move = (index: number, direction: -1 | 1) => {
     const next = index + direction;
@@ -134,7 +160,7 @@ export const ReleaseEditor = ({
           method: 'POST',
           body: JSON.stringify({
             slug: uniqueSlug(title, taken),
-            artistSlug,
+            artistSlugs,
             title: title.trim(),
             type,
             releaseDate,
@@ -143,7 +169,7 @@ export const ReleaseEditor = ({
       } else {
         saved = await api<AdminRelease>(`/api/admin/releases/${existing.slug}`, {
           method: 'PATCH',
-          body: JSON.stringify({ artistSlug, title: title.trim(), type, releaseDate }),
+          body: JSON.stringify({ artistSlugs, title: title.trim(), type, releaseDate }),
         });
       }
       if (cover) {
@@ -255,13 +281,6 @@ export const ReleaseEditor = ({
             <input value={title} maxLength={180} onChange={(event) => setTitle(event.target.value)} />
           </label>
           <label className="form-field">
-            Artist
-            <select value={artistSlug} onChange={(event) => setArtistSlug(event.target.value)}>
-              {workspace.artists.length === 0 ? <option value="">Add an artist first</option> : null}
-              {workspace.artists.map((artist) => <option key={artist.slug} value={artist.slug}>{artist.name}</option>)}
-            </select>
-          </label>
-          <label className="form-field">
             Release type
             <select value={type} onChange={(event) => setType(event.target.value === 'album' ? 'album' : 'single')}>
               <option value="single">Single</option>
@@ -272,6 +291,29 @@ export const ReleaseEditor = ({
             Release date
             <input type="date" value={releaseDate} onChange={(event) => setReleaseDate(event.target.value)} />
           </label>
+          <div className="form-field full">
+            <span id="release-artists-label">Artists</span>
+            <div className="artist-picks" role="group" aria-labelledby="release-artists-label">
+              {artistSlugs.length === 0 ? <select defaultValue="" aria-label="Artist"><option value="">Add an artist first</option></select> : null}
+              {artistSlugs.map((value, index) => {
+                const artist = workspace.artists.find((item) => item.slug === value);
+                return (
+                  <span className="artist-pick" key={index}>
+                    <select aria-label={index === 0 ? 'Lead artist' : `Artist ${index + 1}`} value={value} onChange={(event) => setArtistAt(index, event.target.value)}>
+                      {workspace.artists.map((option) => <option key={option.slug} value={option.slug}>{option.name}</option>)}
+                    </select>
+                    {index > 0 ? (
+                      <button type="button" className="tiny-button" aria-label={`Remove ${artist?.name ?? 'artist'}`} onClick={() => removeArtist(index)}>×</button>
+                    ) : artistSlugs.length > 1 ? <span className="artist-pick-spacer" aria-hidden="true" /> : null}
+                  </span>
+                );
+              })}
+            </div>
+            {artistSlugs.length < 3 && workspace.artists.length > artistSlugs.length ? (
+              <button type="button" className="win-button artist-add" onClick={addArtist}>Add artist</button>
+            ) : null}
+            <small>The first artist leads the collective rotation. Up to three, and the release shows in each catalog.</small>
+          </div>
         </div>
       </div>
       <section>
@@ -364,7 +406,7 @@ export const ReleaseEditor = ({
       </div>
       <div className="editor-actions">
         <small>{published ? 'This release is on the radio.' : 'Save draft keeps it off the radio. Publish puts it on air.'}</small>
-        <button type="button" className="win-button" disabled={pending || !title.trim() || !artistSlug || !releaseDate} onClick={() => void save(false)}>Save draft</button>
+        <button type="button" className="win-button" disabled={pending || !title.trim() || artistSlugs.length === 0 || !releaseDate} onClick={() => void save(false)}>Save draft</button>
         <button
           type="button"
           className="win-button primary-button"

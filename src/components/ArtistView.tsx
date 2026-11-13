@@ -39,7 +39,7 @@ export const ArtistView = ({ slug }: { slug: string }) => {
   });
   const plays = allTracks.reduce((sum, track) => sum + (playback.playCounts[track.id] ?? 0), 0);
   const filtered = Object.entries(catalog.releases).filter(([, release]) => {
-    if (release.artist !== slug) return false;
+    if (!release.artists.includes(slug)) return false;
     if (filter !== 'all' && release.type.toLowerCase() !== filter) return false;
     if (!needle) return true;
     return release.name.toLowerCase().includes(needle);
@@ -137,7 +137,7 @@ export const ArtistView = ({ slug }: { slug: string }) => {
             </button>
           ))}
         </div>
-        <div id="artist-content" className={`property-content${tab === 'tracks' ? ' is-tracks' : ''}`} role="tabpanel" aria-labelledby={`artist-tab-${tab}`}>
+        <div id="artist-content" className={`property-content${tab === 'tracks' ? ' is-tracks' : tab === 'releases' ? ' is-releases' : ''}`} role="tabpanel" aria-labelledby={`artist-tab-${tab}`}>
           {tab === 'tracks' ? (
             <>
               <div className="artist-track-toolbar">

@@ -79,9 +79,15 @@ export const artistBody = z.object({
 
 export const artistPatch = artistBody.omit({ slug: true });
 
+const artistSlugs = z.array(slug).min(1).max(3).superRefine((list, ctx) => {
+  if (new Set(list).size !== list.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Choose each artist once' });
+  }
+});
+
 export const releaseBody = z.object({
   slug,
-  artistSlug: slug,
+  artistSlugs,
   title: z.string().trim().min(1).max(200),
   type: z.enum(['single', 'album']),
   releaseDate: isoDate,

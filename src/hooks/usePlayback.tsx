@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { audioUrl, coverUrl, rotationOf, stationLabel, type CatalogData, type Track } from '../data/catalog.ts';
+import { audioUrl, coverUrl, creditLine, rotationOf, stationLabel, type CatalogData, type Track } from '../data/catalog.ts';
 import { dealSpread } from '../lib/shuffle.ts';
 import { readBoolean, readNumber, writeStationSession, writeStorage } from '../lib/storage.ts';
 import { useCatalog } from './useCatalog.tsx';
@@ -98,12 +98,15 @@ const usePlaybackEngine = (
       // Some browsers reject playbackState writes.
     }
     if (!track || typeof MediaMetadata === 'undefined') return;
-    const artist = catalogRef.current.artists[track.artist];
-    if (!artist) return;
+    const names = track.artists.flatMap((slug) => {
+      const name = catalogRef.current.artists[slug]?.name;
+      return name ? [name] : [];
+    });
+    if (names.length === 0) return;
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.name,
-        artist: artist.name,
+        artist: creditLine(names),
         album: stationLabel(stationRef.current, catalogRef.current.artists),
         artwork: [{
           src: new URL(coverUrl(track.art), window.location.href).href,

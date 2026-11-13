@@ -42,6 +42,16 @@ export const releases = pgTable('releases', {
   index('releases_cover_key_idx').on(table.coverKey),
 ]);
 
+export const releaseArtists = pgTable('release_artists', {
+  releaseSlug: text('release_slug').notNull().references(() => releases.slug, { onDelete: 'cascade' }),
+  artistSlug: text('artist_slug').notNull().references(() => artists.slug, { onDelete: 'cascade' }),
+  sort: integer('sort').notNull(),
+}, (table) => [
+  primaryKey({ name: 'release_artists_pkey', columns: [table.releaseSlug, table.artistSlug] }),
+  uniqueIndex('release_artists_sort_unique').on(table.releaseSlug, table.sort),
+  index('release_artists_artist_idx').on(table.artistSlug),
+]);
+
 export const tracks = pgTable('tracks', {
   id: text('id').primaryKey(),
   releaseSlug: text('release_slug').notNull().references(() => releases.slug, { onDelete: 'cascade' }),

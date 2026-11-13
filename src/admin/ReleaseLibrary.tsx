@@ -1,3 +1,5 @@
+import { creditLine } from '../data/catalog.ts';
+import { creditedSlugs } from './format.ts';
 import type { AdminArtist, AdminRelease, AdminTrack } from './types.ts';
 import { mediaUrl } from './types.ts';
 
@@ -29,16 +31,16 @@ export const ReleaseLibrary = ({
   onDelete: (slug: string) => void;
 }) => {
   const artistName = (slug: string) => artists.find((artist) => artist.slug === slug)?.name ?? slug;
+  const namesOf = (release: AdminRelease) => creditLine(creditedSlugs(release).map(artistName));
   const query = search.trim().toLowerCase();
   const rows = releases.filter((release) => {
-    const name = artistName(release.artistSlug).toLowerCase();
-    const matchesArtist = !artistSlug || release.artistSlug === artistSlug;
+    const matchesArtist = !artistSlug || creditedSlugs(release).includes(artistSlug);
     const matchesFilter = filter === 'all' || release.status === filter;
-    const matchesSearch = !query || release.title.toLowerCase().includes(query) || name.includes(query);
+    const matchesSearch = !query || release.title.toLowerCase().includes(query) || namesOf(release).toLowerCase().includes(query);
     return matchesArtist && matchesFilter && matchesSearch;
   });
   const countFor = (key: ReleaseFilter) => releases.filter((release) => {
-    const matchesArtist = !artistSlug || release.artistSlug === artistSlug;
+    const matchesArtist = !artistSlug || creditedSlugs(release).includes(artistSlug);
     return matchesArtist && (key === 'all' || release.status === key);
   }).length;
   const trackCount = (slug: string) => tracks.filter((track) => track.releaseSlug === slug).length;
@@ -84,7 +86,7 @@ export const ReleaseLibrary = ({
               <thead>
                 <tr>
                   <th scope="col">Name</th>
-                  <th scope="col">Artist</th>
+                  <th scope="col">Artists</th>
                   <th scope="col">Type</th>
                   <th scope="col">Tracks</th>
                   <th scope="col">Status</th>
@@ -108,7 +110,7 @@ export const ReleaseLibrary = ({
                         </span>
                       </span>
                     </td>
-                    <td>{artistName(release.artistSlug)}</td>
+                    <td>{namesOf(release)}</td>
                     <td>{release.type === 'album' ? 'Album' : 'Single'}</td>
                     <td>{trackCount(release.slug)}</td>
                     <td>
