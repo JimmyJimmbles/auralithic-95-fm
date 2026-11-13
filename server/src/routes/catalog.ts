@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNotNull } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { artistLinks, artists, releases, tracks } from '../db/schema.js';
+import { artistLinks, artists, playbacks, releases, tracks } from '../db/schema.js';
 import { strictEmpty, emptyBody, read } from '../http/validate.js';
 import { media } from '../media/store.js';
 
@@ -25,6 +25,10 @@ export const catalogRoutes = async (app: FastifyInstance) => {
     const trackRows = await db.select().from(tracks)
       .where(and(inArray(tracks.releaseSlug, releaseSlugs), eq(tracks.status, 'published')))
       .orderBy(asc(tracks.position));
+    const streamRows = trackRows.length === 0 ? [] : await db.select({ trackId: playbacks.trackId, total: count() }).from(playbacks)
+      .where(and(inArray(playbacks.trackId, trackRows.map((track) => track.id)), isNotNull(playbacks.qualifiedAt)))
+      .groupBy(playbacks.trackId);
+    const streamsById = new Map(streamRows.map((row) => [row.trackId, Number(row.total)]));
 
     const linksByArtist = new Map<string, { label: string; url: string }[]>();
     for (const link of linkRows) {
@@ -62,6 +66,7 @@ export const catalogRoutes = async (app: FastifyInstance) => {
           title: track.title,
           position: track.position,
           durationSeconds: track.durationSeconds,
+          streams: streamsById.get(track.id) ?? 0,
           audioUrl: urlFor(track.audioKey),
           coverUrl: urlFor(release?.coverKey ?? null),
         };

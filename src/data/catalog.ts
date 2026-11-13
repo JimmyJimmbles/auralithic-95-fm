@@ -20,6 +20,7 @@ export type Track = {
   name: string;
   release: string;
   length: number;
+  streams: number;
   artist: string;
   art: string;
   audio: string;
@@ -63,6 +64,7 @@ export type ApiCatalog = {
     artistSlug: string;
     title: string;
     durationSeconds: number;
+    streams: number;
     audioUrl: string | null;
     coverUrl: string | null;
   }[];
@@ -97,6 +99,7 @@ export const mapCatalog = (payload: ApiCatalog): CatalogData => {
       name: track.title,
       release: track.releaseSlug,
       length: track.durationSeconds,
+      streams: track.streams ?? 0,
       artist: track.artistSlug,
       art: track.coverUrl ?? '',
       audio: track.audioUrl,
