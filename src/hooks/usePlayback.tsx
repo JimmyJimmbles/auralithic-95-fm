@@ -40,6 +40,7 @@ const errorName = (error: unknown): string =>
 const usePlaybackEngine = (
   notify: (message: string) => void,
   recordPlay: (id: string) => void,
+  beginPlay: (id: string) => void,
   catalog: CatalogData,
 ) => {
   const catalogRef = useRef(catalog);
@@ -65,9 +66,11 @@ const usePlaybackEngine = (
   const countedRef = useRef(false);
   const notifyRef = useRef(notify);
   const recordRef = useRef(recordPlay);
+  const beginRef = useRef(beginPlay);
   useLayoutEffect(() => {
     notifyRef.current = notify;
     recordRef.current = recordPlay;
+    beginRef.current = beginPlay;
   });
 
   const [current, setCurrent] = useState<Track | null>(null);
@@ -171,23 +174,19 @@ const usePlaybackEngine = (
       publishSession();
       return;
     }
+    audio.pause();
     const nextSrc = audioUrl(track);
     const sameSource = audio.getAttribute('src') === nextSrc;
     audio.src = nextSrc;
     if (sameSource) audio.load();
-    if (offset > 0) {
-      const seek = () => {
-        audio.currentTime = offset;
-        audio.removeEventListener('loadedmetadata', seek);
-      };
-      audio.addEventListener('loadedmetadata', seek);
-    }
+    const start = () => {
+      audio.removeEventListener('loadedmetadata', start);
+      if (offset > 0) audio.currentTime = offset;
+      if (shouldPlay) void play();
+    };
+    audio.addEventListener('loadedmetadata', start);
     publishSession();
-    if (shouldPlay) void play();
-    else {
-      audio.pause();
-      setPlaying(false);
-    }
+    if (shouldPlay) beginRef.current(track.id);
   }, [play, publishSession]);
 
   const tuneScope = useCallback((scope: string, autoplay: boolean, trackId?: string, offset = 0) => {
@@ -284,7 +283,16 @@ const usePlaybackEngine = (
       const audio = audioRef.current;
       if (!snap && detachedRef.current) return;
       if (track && currentRef.current?.id === track.id && audio && audio.getAttribute('src')) {
-        if (Math.abs(audio.currentTime - offset) > 2.5) audio.currentTime = offset;
+        if (audio.ended) return;
+        if (Math.abs(audio.currentTime - offset) > 2.5 && !audio.seeking) {
+          const afterSeek = () => {
+            audio.removeEventListener('seeked', afterSeek);
+            if (wantsRef.current && audio.paused) void play();
+          };
+          audio.addEventListener('seeked', afterSeek);
+          audio.currentTime = offset;
+          return;
+        }
         if (audio.paused && wantsRef.current) void play();
         return;
       }
@@ -550,9 +558,9 @@ export const usePlayback = (): Playback => {
 
 export const PlaybackProvider = ({ children, notify }: { children: ReactNode; notify: (message: string) => void }) => {
   const likes = useLikes();
-  const { counts, recordPlay } = usePlayCounts();
   const catalog = useCatalog();
-  const engine = usePlaybackEngine(notify, recordPlay, catalog);
+  const { counts, beginPlay, recordPlay } = usePlayCounts(catalog);
+  const engine = usePlaybackEngine(notify, recordPlay, beginPlay, catalog);
   usePalette(engine.track?.art);
 
   const playback: Playback = {
